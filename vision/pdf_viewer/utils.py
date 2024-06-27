@@ -13,10 +13,12 @@ class ImageConverter:
         # List all PDF files in the specified folder
         return list(self.pdf_folder.glob('*.pdf'))
 
-    def contains_stop_phrases(self, text):
-        for phrase in self.stop_phrases:
-            if phrase in text:
-                return True
+    def contains_stop_phrases(self, doc):
+        for page in doc:
+            text = page.get_text()
+            for phrase in self.stop_phrases:
+                if phrase in text:
+                    return True
         return False
 
     def convert_pdf_to_images(self):
@@ -47,7 +49,7 @@ class ImageConverter:
                     page = doc.load_page(page_number)
                     text = page.get_text()
 
-                    if self.contains_stop_phrases(text):
+                    if self.contains_stop_phrases([page]):
                         print(f"Skipping page {page_number + 1} of {pdf_path.name} due to stop phrases.")
                         continue
 
