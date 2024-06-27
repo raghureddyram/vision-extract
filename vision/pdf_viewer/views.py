@@ -22,5 +22,5 @@ def index(request, file_name):
     return render(request, 'pdf_viewer/index.html', {'png_urls': png_file_urls})
 
 def process_all(request):
-    ImageConverter().convert_pdf_to_images()
+    ImageConverter(stop_phrases=["Activity", "Estimated Cash Flow", "Endnotes"]).convert_pdf_to_images()
     return JsonResponse({'success': 'True'})

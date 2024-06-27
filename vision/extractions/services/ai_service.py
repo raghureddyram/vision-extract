@@ -85,7 +85,8 @@ class AiService:
                 "content": [
                     {
                         "type": "text",
-                        "text": "You are looking at a financial statement. Can you summarize what you see? Please pay special attention to any holdings, tickers, cusips, and the initial cost (cost basis)"
+                        "text": "You are looking at a financial statement. Can you summarize what you see? Please pay special attention to any holdings, tickers, cusips, and the initial cost (cost basis). "
+                                "Respond 'NOT_RELEVANT' if you do not see account information, holding information, or portfolio value."
                     },
                     {
                         "type": "image_url",
@@ -104,12 +105,15 @@ class AiService:
 
             response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
             response_json = response.json()
-            responses.append(response_json)
+            relevant_data = response_json.get("choices", [{}])[0].get("message", {}).get("content", "")
 
-            # Add the assistant's response to the conversation
-            conversation.append({
-                "role": "assistant",
-                "content": response_json.get("choices", [{}])[0].get("message", {}).get("content", "")
-            })
+            if relevant_data != "NOT_RELEVANT":
+                responses.append(response_json)
+
+                # Add the assistant's response to the conversation
+                conversation.append({
+                    "role": "assistant",
+                    "content": response_json.get("choices", [{}])[0].get("message", {}).get("content", "")
+                })
 
         return responses
