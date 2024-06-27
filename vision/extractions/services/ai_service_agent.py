@@ -20,7 +20,7 @@ client = instructor.patch(OpenAI(api_key=openai_api_key))
 class PortfolioHolding(BaseModel):
     HoldingName: str
     CostBasis: Optional[float]
-    AccountNumber: str
+    AccountNumber: Optional[str]
 
 class StatementSummary(BaseModel):
     AccountHolderEntityName: str
@@ -53,7 +53,7 @@ class AiServiceAgent:
             response_model=List[PortfolioHolding],
             messages=[
                 {"role": "user",
-                 "content": "Extract account number, portfolio holding names and each holding's cost basis from the following financial statement. Please note that holdings may be stocks, preferred stocks, bonds and will typicall have a unique identifier: " + content},
+                 "content": "Extract Portfolio holding names and each holding's cost basis, and account number which is /[\d-]+/ from the following financial statement. Please note that holdings may be stocks, preferred stocks, bonds and will typicall have a unique identifier: " + content},
             ]
         )
         for holding in holdings:
@@ -81,7 +81,7 @@ class AiServiceAgent:
         base64_image = self.encode_image(image_path)
         conversation = [
             {"role": "user", "content": [
-                {"type": "text", "text": "You are looking at a financial statement. Can you summarize what you see? Please pay special attention to any holdings, tickers, cusips, and the initial cost (cost basis). Respond 'NOT_RELEVANT' if you do not see account information, holding information, or portfolio value."},
+                {"type": "text", "text": "You're looking at a financial statement. Can you summarize what you see? Please consider using words such as 'portfolio summary', any account name, account number formatted like 1111-3333, holdings, ticker symbols/cusips, and cost basis. Respond ONLY with 'NOT_RELEVANT' if you do not see such language."},
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
             ]}
         ]
@@ -102,9 +102,10 @@ class AiServiceAgent:
         for image_name in self.get_file_names()[start:stop]:
             image_path = self.pdf_folder / image_name
             relevant_data = self.process_image(image_path)
+            print(relevant_data)
 
             if relevant_data != "NOT_RELEVANT":
-                if re.search(r'account.*report', relevant_data, re.IGNORECASE):
+                if re.search(r'portfolio.*summary', relevant_data, re.IGNORECASE):
                     self.summary_extractions = self.get_summary_extractions(relevant_data)
                 elif re.search(r'holding', relevant_data, re.IGNORECASE):
                     self.holding_extractions.update(self.get_holding_extractions(relevant_data))
@@ -112,9 +113,10 @@ class AiServiceAgent:
         return self._clean_results(self.summary_extractions, self.holding_extractions)
 
     def _clean_results(self, summary_extractions, holding_extractions):
-        result = defaultdict(dict)
+        result = {"accounts": {}}
         for account_number, account_entity_owner, portfolio_value in summary_extractions:
             if account_number not in result["accounts"]:
+                result["accounts"] = {}
                 result["accounts"][account_number] = {
                     "account_entity_owner": account_entity_owner,
                     "portfolio_value": portfolio_value,
