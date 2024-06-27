@@ -1,7 +1,6 @@
 import base64
 import requests
 from dotenv import load_dotenv
-import pdb
 import os
 from pathlib import Path
 from django.conf import settings
