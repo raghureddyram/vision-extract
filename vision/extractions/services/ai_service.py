@@ -5,58 +5,111 @@ import pdb
 import os
 from pathlib import Path
 from django.conf import settings
-
+from openai import OpenAI
+from pydantic.main import BaseModel
+import instructor
+from typing import List, Optional
 
 load_dotenv()
+openai_api_key = os.getenv('OPENAI_KEY')
+client = instructor.patch(OpenAI(api_key=openai_api_key))
+class PortfolioHolding(BaseModel):
+    HoldingName: str
+    CostBasis: Optional[float]
+class StatementSummary(BaseModel):
+    AccountOwner: str
+    PortfolioValue: float
+class StatementDetail(BaseModel):
+    Summary: StatementSummary
+    Holdings: List[PortfolioHolding]
+
 
 class AiService:
     def __init__(self, pdf_name):
         self.pdf_folder = Path(settings.BASE_DIR) / 'media' / pdf_name
-
-    def detail_image(self, image_name):
-        image_path = self.pdf_folder / image_name
-
-        # OpenAI API Key
-
-        api_key = os.getenv('OPENAI_KEY')
-
-
-        # Function to encode the image
-        def encode_image(image_path):
-            with open(image_path, "rb") as image_file:
-                return base64.b64encode(image_file.read()).decode('utf-8')
-
-        # Getting the base64 string
-        base64_image = encode_image(image_path)
-
-
-        headers = {
+        self.holding_extractions = set({})
+        self.summary_extractions = None
+        self.api_key = openai_api_key
+        self.headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
+            "Authorization": f"Bearer {self.api_key}"
         }
 
-        payload = {
-            "model": "gpt-4o",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "What’s in this image?"
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
+    def encode_image(self, image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
+
+    def get_file_names(self):
+        return [file.name for file in self.pdf_folder.iterdir() if file.is_file()]
+
+    def get_holding_extractions(self, content):
+        holding_extractions = client.chat.completions.create(
+            model="gpt-4o",
+            response_model=List[PortfolioHolding],
+            messages=[
+                {"role": "user",
+                 "content": "Extract portfolio holding names and each holding's cost basis from the following financial statement:" + f'{content}'},
+            ]
+        )
+
+        for holding in holding_extractions:
+            if holding.CostBasis:
+                self.holding_extractions.add({'holding_name': holding.HoldingName, 'cost_basis': holding.CostBasis})
+
+        return self.holding_extractions
+
+    def get_summary_extractions(self, content):
+        self.summary_extractions = client.chat.completions.create(
+            model="gpt-4o",
+            response_model=StatementSummary,
+            messages=[
+                {"role": "user",
+                 "content": "Extract the Account Holder and Total Portfolio Value from the following financial statement:" + f'{content}'},
+            ]
+        )
+
+        return self.summary_extractions
+
+    def summarize_images_with_context(self, start=0, stop=-1):
+        headers = self.headers
+        conversation = []
+        responses = []
+
+        for image_name in self.get_file_names()[start:stop]:
+
+            image_path = self.pdf_folder / image_name
+            base64_image = self.encode_image(image_path)
+
+            conversation.append({
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "What is this image?"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
                         }
-                    ]
-                }
-            ],
-            "max_tokens": 300
-        }
+                    }
+                ]
+            })
 
-        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+            payload = {
+                "model": "gpt-4o",
+                "messages": conversation,
+                "max_tokens": 300
+            }
 
-        print(response.json())
+            response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+            response_json = response.json()
+            responses.append(response_json)
+
+            # Add the assistant's response to the conversation
+            conversation.append({
+                "role": "assistant",
+                "content": response_json.get("choices", [{}])[0].get("message", {}).get("content", "")
+            })
+
+        return responses
