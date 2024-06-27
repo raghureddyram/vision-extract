@@ -38,6 +38,7 @@ class AiServiceAgent:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
         }
+        self.accounts_seen = set()
 
     def encode_image(self, image_path):
         with open(image_path, "rb") as image_file:
@@ -51,7 +52,7 @@ class AiServiceAgent:
         holdings = client.chat.completions.create(
             model="gpt-4o",
             response_model=List[PortfolioHolding],
-            temperature=0,
+            temperature=0.1,
             messages=[
                 {"role": "user",
                  "content": "Extract Portfolio holding names and each holding's cost basis, and account number which is /[\d-]+/ from the following financial statement. Please note that holdings may be stocks, preferred stocks, bonds and will typicall have a unique identifier: " + content},
@@ -109,11 +110,14 @@ class AiServiceAgent:
 
             if relevant_data != "NOT_RELEVANT":
                 relevant_data_lowered = relevant_data.lower()
-                if "accounts" in relevant_data_lowered or "account name" in relevant_data_lowered or "accounts included" in relevant_data_lowered or 'type/name' in relevant_data_lowered or re.search(r'portfolio.*summary', relevant_data, re.IGNORECASE):
-                    self.summary_extractions.update(self.get_summary_extractions(relevant_data))
+                if "ending value" in relevant_data_lowered or "accounts included" in relevant_data_lowered or 'type/name' in relevant_data_lowered or re.search(r'portfolio.*summary', relevant_data, re.IGNORECASE):
+                    summary_extraction = self.get_summary_extractions(relevant_data)
+                    for extraction in summary_extraction:
+                        if extraction not in self.accounts_seen:
+                            self.summary_extractions.update(self.get_summary_extractions(relevant_data))
+                        self.accounts_seen.add(extraction[0])
                 elif re.search(r'holding', relevant_data, re.IGNORECASE):
                     self.holding_extractions.update(self.get_holding_extractions(relevant_data))
-        pdb.set_trace()
         return self._clean_results(self.summary_extractions, self.holding_extractions)
 
     def _clean_results(self, summary_extractions, holding_extractions):
