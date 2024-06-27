@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>List of PNG Files</title>
+</head>
+<body>
+    <h1>List of PNG Files</h1>
+    <ul>
+        {% for png in png_urls %}
+            <li><img src="{{ png }}" alt="PNG File" /></li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
