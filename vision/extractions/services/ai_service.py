@@ -48,13 +48,13 @@ class AiService:
             response_model=List[PortfolioHolding],
             messages=[
                 {"role": "user",
-                 "content": "Extract portfolio holding names and each holding's cost basis from the following financial statement:" + f'{content}'},
+                 "content": "Extract portfolio holding names and each holding's cost basis from the following financial statement. Please note that holdings may be stocks, preferred stocks, bonds and have an identifier :" + f'{content}'},
             ]
         )
 
         for holding in holding_extractions:
             if holding.CostBasis:
-                self.holding_extractions.add({'holding_name': holding.HoldingName, 'cost_basis': holding.CostBasis})
+                self.holding_extractions.add((holding.HoldingName, holding.CostBasis))
 
         return self.holding_extractions
 
@@ -85,7 +85,7 @@ class AiService:
                 "content": [
                     {
                         "type": "text",
-                        "text": "What is this image?"
+                        "text": "You are looking at a financial statement. Can you summarize what you see? Please pay special attention to any holdings, tickers, cusips, and the initial cost (cost basis)"
                     },
                     {
                         "type": "image_url",
