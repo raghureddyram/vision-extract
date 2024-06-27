@@ -10,6 +10,9 @@ python = "^3.10"
 django = "^5.0.6"
 pathlib = "^1.0.1"
 pdf2image = "^1.17.0"
+python-dotenv = "^1.0.1"
+openai = "^1.35.5"
+requests = "^2.32.3"
 
 
 [build-system]

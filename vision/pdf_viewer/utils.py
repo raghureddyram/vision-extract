@@ -1,10 +1,11 @@
 from pathlib import Path
 from pdf2image import convert_from_path
+from django.conf import settings
 
 class ImageConverter:
     def __init__(self, pdf_folder='source_pdfs', output_folder='media'):
-        self.pdf_folder = Path(pdf_folder)
-        self.output_folder = Path(output_folder)
+        self.pdf_folder = Path(settings.BASE_DIR) / pdf_folder
+        self.output_folder = Path(settings.BASE_DIR) / output_folder
 
     def find_pdfs(self):
         # List all PDF files in the specified folder

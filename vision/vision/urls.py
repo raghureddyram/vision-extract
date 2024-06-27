@@ -21,6 +21,7 @@ from django.urls import path, include
 
 urlpatterns = [
     path('pdf_viewer/', include('pdf_viewer.urls')),
+    path('extractions/', include('extractions.urls')),
     path('admin/', admin.site.urls),
 ]
 
