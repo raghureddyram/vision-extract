@@ -51,6 +51,7 @@ class AiServiceAgent:
         holdings = client.chat.completions.create(
             model="gpt-4o",
             response_model=List[PortfolioHolding],
+            temperature=0,
             messages=[
                 {"role": "user",
                  "content": "Extract Portfolio holding names and each holding's cost basis, and account number which is /[\d-]+/ from the following financial statement. Please note that holdings may be stocks, preferred stocks, bonds and will typicall have a unique identifier: " + content},
@@ -67,6 +68,7 @@ class AiServiceAgent:
         summaries = client.chat.completions.create(
             model="gpt-4o",
             response_model=List[StatementSummary],
+            temperature=0,
             messages=[
                 {"role": "user",
                  "content": "Extract the Account Owner Entity Names and Total Portfolio Values from the following financial statement. Account owners will have an account number: " + content},
@@ -81,13 +83,14 @@ class AiServiceAgent:
         base64_image = self.encode_image(image_path)
         conversation = [
             {"role": "user", "content": [
-                {"type": "text", "text": "You're looking at a financial statement. Can you summarize what you see? Please consider using words such as 'portfolio summary', any account name, account number formatted like 1111-3333, holdings, ticker symbols/cusips, and cost basis. Respond ONLY with 'NOT_RELEVANT' if you do not see such language."},
+                {"type": "text", "text": "You're looking at a financial statement. Can you summarize what you see? Please consider any account name, account number formatted like 1111-3333, holdings, ticker symbols/cusips, and cost basis. Respond ONLY with 'NOT_RELEVANT' if you do not see such language."},
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
             ]}
         ]
 
         payload = {
             "model": "gpt-4o",
+            "temperature": 0,
             "messages": conversation,
             "max_tokens": 300
         }
@@ -105,8 +108,9 @@ class AiServiceAgent:
             print(relevant_data)
 
             if relevant_data != "NOT_RELEVANT":
-                if re.search(r'portfolio.*summary', relevant_data, re.IGNORECASE):
-                    self.summary_extractions = self.get_summary_extractions(relevant_data)
+                relevant_data_lowered = relevant_data.lower()
+                if "accounts" in relevant_data_lowered or "account name" in relevant_data_lowered or "accounts included" in relevant_data_lowered or 'type/name' in relevant_data_lowered or re.search(r'portfolio.*summary', relevant_data, re.IGNORECASE):
+                    self.summary_extractions.update(self.get_summary_extractions(relevant_data))
                 elif re.search(r'holding', relevant_data, re.IGNORECASE):
                     self.holding_extractions.update(self.get_holding_extractions(relevant_data))
         pdb.set_trace()
@@ -116,7 +120,6 @@ class AiServiceAgent:
         result = {"accounts": {}}
         for account_number, account_entity_owner, portfolio_value in summary_extractions:
             if account_number not in result["accounts"]:
-                result["accounts"] = {}
                 result["accounts"][account_number] = {
                     "account_entity_owner": account_entity_owner,
                     "portfolio_value": portfolio_value,
@@ -130,3 +133,4 @@ class AiServiceAgent:
                 })
 
         return result
+
