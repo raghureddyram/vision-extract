@@ -63,7 +63,7 @@ class AiService:
             response_model=StatementSummary,
             messages=[
                 {"role": "user",
-                 "content": "Extract the Account Holder and Total Portfolio Value from the following financial statement:" + f'{content}'},
+                 "content": "Extract the Account Holder. and Total Portfolio Value from the following financial statement. The account holder will have an account number:" + f'{content}'},
             ]
         )
 
